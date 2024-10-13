@@ -10,6 +10,7 @@ public class ObjectSpawner : MonoBehaviour
     private GameObject spawnedObject;
     private bool objectSpawned = false;
     public ColorChanger colorChanger;
+    public ObjectTransformController objectTransformController;
 
     private ARRaycastManager arRaycastManager;
     private List<ARRaycastHit> hits = new List<ARRaycastHit>();
@@ -42,6 +43,7 @@ public class ObjectSpawner : MonoBehaviour
              spawnedObject = Instantiate(objectPrefab, hitPose.position, hitPose.rotation);
              objectSpawned = true;
              colorChanger.SetSpawnedObject(spawnedObject);
+             objectTransformController.SetSpawnedObject(spawnedObject);
         }
     }
 }
