@@ -6,11 +6,16 @@ public class ObjectTransformController : MonoBehaviour
     private GameObject spawnedObject;
     private float initialDistance;
     private Vector3 initialScale;
+    private float initialRotationAngle;
+    private float currentRotationAngle;
 
     private bool objectSpawned = false;
 
     private float mouseScaleFactor = 0.002f;
     private float minScaleThreshold = 0.01f;
+    private float rotationSpeed = 0.1f;
+
+    private bool isRotatingWithMouse = false;
 
     public void SetSpawnedObject(GameObject obj)
     {
@@ -22,10 +27,17 @@ public class ObjectTransformController : MonoBehaviour
     void Update()
     {
         if (!objectSpawned || spawnedObject == null) return;
+
+        // Handle scaling
         HandleTouchScaling();
         HandleMouseScrollScaling();
+
+        // Handle rotation
+        HandleTouchRotation();
+        HandleMouseRotation();
     }
 
+    // --------- Scaling Logic ---------
     private void HandleTouchScaling()
     {
         if (Touchscreen.current != null && Touchscreen.current.touches.Count >= 2)
@@ -82,5 +94,57 @@ public class ObjectTransformController : MonoBehaviour
             Mathf.Max(newScale.y, minScaleThreshold),
             Mathf.Max(newScale.z, minScaleThreshold)
         );
+    }
+
+    // --------- Rotation Logic ---------
+    // Handle rotation with two-finger twist gesture
+    private void HandleTouchRotation()
+    {
+        if (Touchscreen.current != null && Touchscreen.current.touches.Count == 2)
+        {
+            var touchZero = Touchscreen.current.touches[0];
+            var touchOne = Touchscreen.current.touches[1];
+
+            Vector2 touchZeroPosition = touchZero.position.ReadValue();
+            Vector2 touchOnePosition = touchOne.position.ReadValue();
+
+            float angle = Mathf.Atan2(touchOnePosition.y - touchZeroPosition.y, touchOnePosition.x - touchZeroPosition.x) * Mathf.Rad2Deg;
+
+            if (touchZero.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Began ||
+                touchOne.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Began)
+            {
+                initialRotationAngle = angle;
+            }
+            else if (touchZero.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Moved ||
+                     touchOne.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Moved)
+            {
+                float rotationDelta = angle - initialRotationAngle;
+                spawnedObject.transform.Rotate(0, -rotationDelta, 0);
+                initialRotationAngle = angle;
+            }
+        }
+    }
+
+    // Handle rotation with mouse drag
+    private void HandleMouseRotation()
+    {
+        if (Mouse.current != null)
+        {
+            if (Mouse.current.leftButton.wasPressedThisFrame)
+            {
+                isRotatingWithMouse = true;
+            }
+
+            if (isRotatingWithMouse && Mouse.current.leftButton.isPressed)
+            {
+                Vector2 mouseDelta = Mouse.current.delta.ReadValue();
+                spawnedObject.transform.Rotate(0, -mouseDelta.x * rotationSpeed, 0);
+            }
+
+            if (Mouse.current.leftButton.wasReleasedThisFrame)
+            {
+                isRotatingWithMouse = false;
+            }
+        }
     }
 }
