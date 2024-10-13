@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.XR.ARFoundation;
 
 public class ObjectTransformController : MonoBehaviour
 {
@@ -7,21 +8,30 @@ public class ObjectTransformController : MonoBehaviour
     private float initialDistance;
     private Vector3 initialScale;
     private float initialRotationAngle;
-    private float currentRotationAngle;
 
     private bool objectSpawned = false;
 
     private float mouseScaleFactor = 0.002f;
     private float minScaleThreshold = 0.01f;
     private float rotationSpeed = 0.1f;
-
     private bool isRotatingWithMouse = false;
+    private bool isDragging = false;
+
+    private ARRaycastManager arRaycastManager;
+    private Vector3 initialObjectPosition;
+    private Vector2 previousTouchPosition;
 
     public void SetSpawnedObject(GameObject obj)
     {
         spawnedObject = obj;
         objectSpawned = true;
         initialScale = obj.transform.localScale;
+        initialObjectPosition = spawnedObject.transform.position;
+    }
+
+    void Start()
+    {
+        arRaycastManager = FindObjectOfType<ARRaycastManager>();
     }
 
     void Update()
@@ -35,6 +45,10 @@ public class ObjectTransformController : MonoBehaviour
         // Handle rotation
         HandleTouchRotation();
         HandleMouseRotation();
+
+        // Handle position movement
+        HandleTouchMovement();
+        HandleMouseMovement();
     }
 
     // --------- Scaling Logic ---------
@@ -146,5 +160,68 @@ public class ObjectTransformController : MonoBehaviour
                 isRotatingWithMouse = false;
             }
         }
+    }
+
+    // --------- Position Movement Logic ---------
+    private void HandleTouchMovement()
+    {
+        if (Touchscreen.current != null && Touchscreen.current.touches.Count == 1)
+        {
+            var touch = Touchscreen.current.touches[0];
+
+            if (touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Began)
+            {
+                previousTouchPosition = touch.position.ReadValue();
+                isDragging = true;
+            }
+            else if (touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Moved && isDragging)
+            {
+                Vector2 currentTouchPosition = touch.position.ReadValue();
+                Vector2 touchDelta = currentTouchPosition - previousTouchPosition;
+
+                MoveObjectOnPlane(touchDelta);
+
+                previousTouchPosition = currentTouchPosition;
+            }
+            else if (touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Ended)
+            {
+                isDragging = false;
+            }
+        }
+    }
+
+    private void HandleMouseMovement()
+    {
+        if (Mouse.current != null)
+        {
+            if (Mouse.current.leftButton.wasPressedThisFrame)
+            {
+                previousTouchPosition = Mouse.current.position.ReadValue();
+                isDragging = true;
+            }
+            else if (Mouse.current.leftButton.isPressed && isDragging)
+            {
+                Vector2 currentMousePosition = Mouse.current.position.ReadValue();
+                Vector2 mouseDelta = currentMousePosition - previousTouchPosition;
+
+                MoveObjectOnPlane(mouseDelta);
+
+                previousTouchPosition = currentMousePosition;
+            }
+            else if (Mouse.current.leftButton.wasReleasedThisFrame)
+            {
+                isDragging = false;
+            }
+        }
+    }
+
+    private void MoveObjectOnPlane(Vector2 delta)
+    {
+        // Adjust the speed of movement to make dragging smoother
+        float movementSpeed = 0.001f;
+
+        // Convert screen delta into world movement along the X and Z plane
+        Vector3 movement = new Vector3(delta.x * movementSpeed, 0, delta.y * movementSpeed);
+        spawnedObject.transform.position += movement;
     }
 }
